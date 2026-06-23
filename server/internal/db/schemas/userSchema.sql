@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS users (
+    user_id BIGSERIAL PRIMARY KEY,
+    email VARCHAR NOT NULL UNIQUE,
+    password VARCHAR NOT NULL,
+    refresh_token VARCHAR,
+    creation_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
