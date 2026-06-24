@@ -13,9 +13,10 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-var ErrInvalidCredentials error = errors.New("invalid credentials")
-
-var ErrmismatchedToken error = errors.New("token mismatched")
+var (
+	ErrInvalidCredentials error = errors.New("invalid credentials")
+	ErrmismatchedToken    error = errors.New("token mismatched")
+)
 
 type AuthService struct {
 	query *db.Queries
@@ -27,8 +28,10 @@ func NewAuthService(query *db.Queries) *AuthService {
 
 type Service interface {
 	RegisterUserService(ctx context.Context, email string, pasword string) error
-	LoginUserService(ctx context.Context, email string, password string) error
+	LoginUserService(ctx context.Context, email string, password string) (accessTokenString string, refreshTokenString string, err error)
 	DeleteUserService(ctx context.Context, email string, password string) error
+	RefreshTokenService(ctx context.Context, refreshTokenString string) (string, string, error)
+	LogoutService(ctx context.Context, userID int64) error
 }
 
 func (service *AuthService) RegisterUserService(ctx context.Context, email string, password string) error {

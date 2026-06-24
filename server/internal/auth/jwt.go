@@ -2,10 +2,8 @@ package auth
 
 import (
 	"errors"
-	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	jwt "github.com/golang-jwt/jwt/v5"
@@ -54,18 +52,5 @@ func VerifyToken(tokenString string) (int64, error) {
 		return -1, err
 	}
 	userID, err := strconv.ParseInt(sub, 10, 64)
-	return userID, err
-}
-
-func IsAuthenticated(r *http.Request) (userID int64, err error) {
-	authStr := r.Header.Get("Authorization")
-	if authStr == "" {
-		return -1, ErrUnauthorized
-	}
-	if !strings.HasPrefix(authStr, "Bearer ") {
-		return -1, ErrUnauthorized
-	}
-	tokenString := strings.TrimPrefix(authStr, "Bearer ")
-	userID, err = VerifyToken(tokenString)
 	return userID, err
 }
