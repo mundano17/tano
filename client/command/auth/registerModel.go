@@ -9,7 +9,6 @@ import (
 	"strings"
 	"unicode"
 
-	"charm.land/bubbles/v2/cursor"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	lipgloss "charm.land/lipgloss/v2"
@@ -20,7 +19,6 @@ type registerModel struct {
 	height     int
 	focusIndex int
 	inputs     []textinput.Model
-	cursorMode cursor.Mode
 	quitting   bool
 	Err        string
 }

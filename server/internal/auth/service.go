@@ -3,9 +3,7 @@ package auth
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
-	"fmt"
 
 	db "tanoserver/internal/db/generated"
 
@@ -34,10 +32,15 @@ type Service interface {
 	LogoutService(ctx context.Context, userID int64) error
 }
 
+var ErrBadPassword error = errors.New("invalid pasword")
+
 func (service *AuthService) RegisterUserService(ctx context.Context, email string, password string) error {
 	hash, err := argon2id.CreateHash(password, argon2id.DefaultParams)
 	if err != nil {
 		return err
+	}
+	if !isValidPassword(password) {
+		return ErrBadPassword
 	}
 	_, err = service.query.CreateUser(ctx, db.CreateUserParams{Email: email, Password: string(hash)})
 	return err
@@ -140,10 +143,4 @@ func (service *AuthService) RefreshTokenService(ctx context.Context, refreshToke
 func (service *AuthService) LogoutService(ctx context.Context, userID int64) error {
 	err := service.query.SetRefreshTokenToNULL(ctx, userID)
 	return err
-}
-
-func hashToken(tokenstring string) string {
-	hash := sha256.Sum256([]byte(tokenstring))
-	hashString := fmt.Sprintf("%x", hash)
-	return hashString
 }

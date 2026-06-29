@@ -22,7 +22,7 @@ type credentials struct {
 	Password string `json:"password"`
 }
 
-type LoginResponse struct {
+type tokenResponseBody struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 }
@@ -40,8 +40,12 @@ func (c *AuthController) RegisterController(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	err = c.service.RegisterUserService(ctx, creds.Email, creds.Password)
+	if err != nil && errors.Is(err, ErrBadPassword) {
+		http.Error(w, "bad password", http.StatusBadRequest)
+		return
+	}
 	if err != nil {
-		http.Error(w, "Server Error", 500)
+		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -64,7 +68,7 @@ func (c *AuthController) LoginController(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "Invalid Credentials", http.StatusUnauthorized)
 		return
 	}
-	res := LoginResponse{AccessToken: accTokenString, RefreshToken: refreshTokenString}
+	res := tokenResponseBody{AccessToken: accTokenString, RefreshToken: refreshTokenString}
 	w.Header().Set(
 		"Content-Type",
 		"application/json",
@@ -103,7 +107,7 @@ func (c *AuthController) DeleteController(w http.ResponseWriter, r *http.Request
 	}
 	err = c.service.DeleteUserService(ctx, creds.Email, creds.Password)
 	if err != nil && !errors.Is(err, ErrInvalidCredentials) {
-		http.Error(w, "Server Error", 500)
+		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
 	if err != nil && errors.Is(err, ErrInvalidCredentials) {
@@ -111,4 +115,35 @@ func (c *AuthController) DeleteController(w http.ResponseWriter, r *http.Request
 		return
 	}
 	w.WriteHeader(http.StatusAccepted)
+}
+
+type refreshTokenBody struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+func (c *AuthController) RefreshTokenController(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var body refreshTokenBody
+	err := json.NewDecoder(r.Body).Decode(&body)
+	if err != nil {
+		http.Error(w, "Invalid Body", http.StatusBadRequest)
+		return
+	}
+	accTokenString, refreshTokenString, err := c.service.RefreshTokenService(ctx, body.RefreshToken)
+
+	if err != nil && !errors.Is(err, ErrmismatchedToken) {
+		http.Error(w, "Server Error", http.StatusInternalServerError)
+		return
+	}
+	if err != nil && errors.Is(err, ErrmismatchedToken) {
+		http.Error(w, "Invalid Credentials", http.StatusUnauthorized)
+		return
+	}
+	res := tokenResponseBody{AccessToken: accTokenString, RefreshToken: refreshTokenString}
+	w.Header().Set(
+		"Content-Type",
+		"application/json",
+	)
+	w.WriteHeader(http.StatusAccepted)
+	_ = json.NewEncoder(w).Encode(res)
 }

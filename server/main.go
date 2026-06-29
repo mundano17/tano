@@ -34,6 +34,10 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.Handle("/user/", routes.NewAuthHandler(authController))
+	mux.HandleFunc(
+		"POST /refresh",
+		authController.RefreshTokenController,
+	)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Method:", r.Method)
 		fmt.Println("Path:", r.URL.Path)

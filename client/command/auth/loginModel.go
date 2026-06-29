@@ -1,18 +1,25 @@
 package authUI
 
 import (
-	"charm.land/bubbles/v2/cursor"
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	lipgloss "charm.land/lipgloss/v2"
-	"strings"
 )
 
 type loginModel struct {
+	width      int
+	height     int
 	focusIndex int
 	inputs     []textinput.Model
-	cursorMode cursor.Mode
 	quitting   bool
+	Err        string
 }
 
 func initializeLoginModel(width int) loginModel {
@@ -53,18 +60,18 @@ func (m loginModel) Init() tea.Cmd {
 
 func (m loginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case loginMsg:
+		m.Err = string(msg)
 	case tea.KeyPressMsg:
 		switch msg.String() {
-		//case "ctrl+c", "esc":
-		//	m.quitting = true
-		//	return m, tea.Quit
+		case "ctrl+c", "esc":
+			m.quitting = true
+			return m, tea.Quit
 		// Set focus to next input
 		case "tab", "shift+tab", "enter", "up", "down":
 			s := msg.String()
-			// Did the user press enter while the submit button was focused?
-			// If so, exit.
 			if s == "enter" {
-				return m, tea.Quit
+				return m, SubmitLogin(m.inputs[0].Value(), m.inputs[1].Value(), "http://localhost:2026/user/login")
 			}
 			// Cycle indexes
 			if s == "up" || s == "shift+tab" {
@@ -105,24 +112,63 @@ func (m *loginModel) updateInputs(msg tea.Msg) tea.Cmd {
 
 func (m loginModel) View() tea.View {
 	var b strings.Builder
-	var c *tea.Cursor
-	for i, in := range m.inputs {
+	for i := range m.inputs {
 		b.WriteString(m.inputs[i].View())
 		if i < len(m.inputs)-1 {
 			b.WriteRune('\n')
 		}
-		if m.cursorMode != cursor.CursorHide && in.Focused() {
-			c = in.Cursor()
-			if c != nil {
-				c.Y += i
-			}
-		}
 	}
-	b.WriteString(helpStyle.Render("enter to submit"))
 	if m.quitting {
 		b.WriteRune('\n')
 	}
-	v := tea.NewView(b.String())
-	v.Cursor = c
+	if m.Err != "" {
+		b.WriteRune('\n')
+		b.WriteRune('\n')
+		b.WriteString(m.Err)
+		m.Err = ""
+	}
+	content := lipgloss.Place(
+		m.width,
+		m.height,
+		lipgloss.Center,
+		lipgloss.Center,
+		b.String(),
+	)
+	v := tea.NewView(content)
 	return v
+}
+
+type loginMsg string
+
+func submitLoginCredentials(email string, password string, url string) tea.Msg {
+	body := map[string]string{
+		"email":    email,
+		"password": password,
+	}
+	btx, err := json.Marshal(body)
+	if err != nil {
+		content := fmt.Sprintf("Error occured: %v", err)
+		return loginMsg(content)
+	}
+	res, err := http.Post(url, "application/json", bytes.NewReader(btx))
+	if err != nil {
+		content := fmt.Sprintf("Error occured: %v", err)
+		return loginMsg(content)
+	}
+	if res.StatusCode != http.StatusAccepted {
+		httpBody, err := io.ReadAll(res.Body)
+		if err != nil {
+			content := fmt.Sprintf("Error occured: %v", err)
+			return loginMsg(content)
+		}
+		content := fmt.Sprintf("Error occured: %s", httpBody)
+		return loginMsg(content)
+	}
+	return loginMsg("Login Successful")
+}
+
+func SubmitLogin(email string, password string, url string) tea.Cmd {
+	return func() tea.Msg {
+		return submitLoginCredentials(email, password, url)
+	}
 }
