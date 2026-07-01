@@ -57,12 +57,11 @@ func main() {
 		fmt.Println("Path:", r.URL.Path)
 		w.WriteHeader(http.StatusOK)
 	})
-
 	port := os.Getenv("SERVER_PORT")
 	addr := fmt.Sprintf(":%s", port)
 
 	fmt.Printf("Server is starting on port %s...\n", port)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := http.ListenAndServe(addr, CORSMiddleware(mux)); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 }
